@@ -52,6 +52,12 @@ variable "max_size" {
   description = "Maximum number of instances to spin up from the load balancer"
 }
 
+variable "cnames" {
+  type = "list"
+
+  default = []
+}
+
 variable "environment_variables" {
   type = "list"
 

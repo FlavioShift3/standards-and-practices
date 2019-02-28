@@ -3,6 +3,12 @@ provider "aws" {
   region  = "${var.region}"
 }
 
+provider "aws" {
+  alias   = "east"
+  profile = "${var.profile}"
+  region  = "us-east-1"
+}
+
 data "aws_route53_zone" "zone" {
   name         = "shift3sandbox.com."
   private_zone = false
@@ -13,11 +19,30 @@ resource "aws_acm_certificate" "cert" {
   validation_method = "DNS"
 }
 
+resource "aws_acm_certificate" "cert_cloudfront_east" {
+  provider          = "aws.east"
+  domain_name       = "${var.web_domain_name}"
+  validation_method = "DNS"
+}
+
+resource "aws_acm_certificate" "cert_cloudfront_west" {
+  domain_name       = "${var.web_domain_name}"
+  validation_method = "DNS"
+}
+
 resource "aws_route53_record" "cert_validation" {
   name    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_name}"
   type    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_type}"
   zone_id = "${data.aws_route53_zone.zone.id}"
   records = ["${aws_acm_certificate.cert.domain_validation_options.0.resource_record_value}"]
+  ttl     = 60
+}
+
+resource "aws_route53_record" "cert_validation_east" {
+  name    = "${aws_acm_certificate.cert_cloudfront_east.domain_validation_options.0.resource_record_name}"
+  type    = "${aws_acm_certificate.cert_cloudfront_east.domain_validation_options.0.resource_record_type}"
+  zone_id = "${data.aws_route53_zone.zone.id}"
+  records = ["${aws_acm_certificate.cert_cloudfront_east.domain_validation_options.0.resource_record_value}"]
   ttl     = 60
 }
 
@@ -49,7 +74,7 @@ resource "aws_s3_bucket" "web_bucket" {
             "AWS": "*"
          },
          "Action": "s3:GetObject",
-         "Resource": "arn:aws:s3:::listing-alert.shift3sandbox.com/*"
+         "Resource": "arn:aws:s3:::kids-kare.shift3sandbox.com/*"
     }, {
         "Sid": "AllowBucketUpdate",
         "Effect": "Allow",
@@ -58,8 +83,8 @@ resource "aws_s3_bucket" "web_bucket" {
         },
         "Action": "s3:*",
         "Resource": [
-            "arn:aws:s3:::listing-alert.shift3sandbox.com",
-            "arn:aws:s3:::listing-alert.shift3sandbox.com/*"
+            "arn:aws:s3:::kids-kare.shift3sandbox.com",
+            "arn:aws:s3:::kids-kare.shift3sandbox.com/*"
         ]
     }]
 }
@@ -71,14 +96,9 @@ resource "aws_cloudfront_distribution" "prod_distribution" {
   origin {
     domain_name = "${aws_s3_bucket.web_bucket.bucket_domain_name}"
     origin_id   = "S3-${aws_s3_bucket.web_bucket.bucket}"
-
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "match-viewer"
-      origin_ssl_protocols   = ["TLSv1", "TLSv1.1", "TLSv1.2"]
-    }
   }
+
+  aliases = ["${var.cnames}"]
 
   # By default, show index.html file
   default_root_object = "index.html"
@@ -112,8 +132,31 @@ resource "aws_cloudfront_distribution" "prod_distribution" {
     max_ttl                = 86400
   }
 
+  # Cache behavior with precedence 0
+  ordered_cache_behavior {
+    path_pattern     = "index.html"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD", "OPTIONS"]
+    target_origin_id = "S3-${aws_s3_bucket.web_bucket.bucket}"
+
+    forwarded_values {
+      query_string = false
+      headers      = ["Origin"]
+
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl                = 0
+    default_ttl            = 0
+    max_ttl                = 0
+    compress               = true
+    viewer_protocol_policy = "redirect-to-https"
+  }
+
   # Distributes content to US and Europe
-  price_class = "PriceClass_100"
+  price_class = "PriceClass_All"
 
   # Restricts who is able to access this content
   restrictions {
@@ -125,7 +168,8 @@ resource "aws_cloudfront_distribution" "prod_distribution" {
 
   # SSL certificate for the service.
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn = "${aws_acm_certificate.cert_cloudfront_east.arn}"
+    ssl_support_method  = "sni-only"
   }
 }
 
