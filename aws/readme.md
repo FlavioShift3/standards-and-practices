@@ -8,3 +8,4 @@
 
 ### TODO:
 - API deployment using Elastic Beanstalk
+- RDS security setup wit EB: https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/AWSHowTo.RDS.html

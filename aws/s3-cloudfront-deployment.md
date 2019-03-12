@@ -36,14 +36,14 @@
 - Replace the policy script with the following (replace `shift3tech.com` with your domain)
 ```
 {
-   “Version”: “2012-10-17",
-   “Statement”: [
+   "Version": "2012-10-17",
+   "Statement": [
        {
-           “Sid”: “PublicReadGetObject”,
-           “Effect”: “Allow”,
-           “Principal”: “*”,
-           “Action”: “s3:GetObject”,
-           “Resource”: “arn:aws:s3:::shift3tech.com/*”
+           "Sid": "PublicReadGetObject",
+           "Effect": "Allow",
+           "Principal": "*",
+           "Action": "s3:GetObject",
+           "Resource": "arn:aws:s3:::shift3tech.com/*"
        }
    ]
 }
@@ -73,7 +73,7 @@
 We want to remove chaching on `index.html` so that our deployments will apply immediately.
 - Go to Cloud Front > Distribution Settings > Behaviors > Create Behavior
 - Enter `index.html`
-- Object Customize set to 0
+- Object Caching: set to Customize
 - Set all TTL values to 0
 
 ##### Angular route handling
@@ -89,6 +89,9 @@ Now it will take up to 24 hours for the DNS settings to propogate (1 hour is mor
 #### Install S3 Commandline Tool
 If you have already install this tool, move to the next step to configure for your new domain deployment.
 
+Install Instructions:  
+https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html
+
 #### Configure S3 Commandline Tool
 TODO
 
@@ -101,4 +104,8 @@ TODO
 - Upload the files
 
 ##### Deployment using Command line:
-TODO
+Deploy command:  
+`aws s3 sync *dist/folder/path* s3://*name_of_bucket*`
+
+Example:  
+`aws s3 sync dist/row_forge_ns s3://admin.rowforge.com`
